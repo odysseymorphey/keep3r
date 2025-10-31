@@ -1,18 +1,21 @@
 package httpapi
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
 type Server struct {
-	http *http.Server
+	http  *http.Server
+	stopC chan os.Signal
 }
 
 func New() *Server {
@@ -38,18 +41,18 @@ func New() *Server {
 	}
 
 	srv := &http.Server{
-		Addr:              addr,
-		Handler:           r,
+		Addr:    addr,
+		Handler: r,
 	}
 
 	return &Server{
-		http: srv,
+		http:  srv,
+		stopC: make(chan os.Signal, 1),
 	}
 }
 
 func (s *Server) Run() {
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(s.stopC, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		if err := s.http.ListenAndServe(); err != nil {
@@ -58,14 +61,17 @@ func (s *Server) Run() {
 
 	}()
 
-	<-sig
+	<-s.stopC
 	log.Println("Shutting down server...")
 
-	s.stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+	defer cancel()
+
+	s.stop(ctx)
 
 	log.Println("Server stoped gracefully")
 }
 
-func (s *Server) stop() {
-
+func (s *Server) stop(ctx context.Context) {
+	s.http.Shutdown(ctx)
 }
