@@ -2,51 +2,41 @@ package store
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
 
-const (
-	bktBuckets = "meta/buckets"
-	bktObjects = "meta/objects"
-)
-
 var (
+	rootBucket  = []byte("objects")
 	ErrNotFound = errors.New("not found")
 )
 
-type DB struct {
+type Store struct {
 	bolt *bolt.DB
 }
 
-func OpenDB(metaDir string) (*DB, error) {
-	if err := os.MkdirAll(metaDir, 0755); err != nil {
-		return nil, err
-	}
+type Options struct {
+	Path string
+}
 
-	dbpath := filepath.Join(metaDir, "meta.db")
-	d, err := bolt.Open(dbpath, 0600, &bolt.Options{Timeout: 1 * time.Second})
+func Open(opt Options) (*Store, error) {
+	db, err := bolt.Open(opt.Path, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := d.Update(func(tx *bolt.Tx) error {
-		for _, name := range []string{bktBuckets, bktObjects} {
-			if _, err := tx.CreateBucketIfNotExists([]byte(name)); err != nil {
-				return err
-			}
-		}
-		return nil
+	if err := db.Update(func(tx *bolt.Tx) error {
+		_, e := tx.CreateBucketIfNotExists(rootBucket)
+		return e
 	}); err != nil {
-		_ = d.Close()
+		_ = db.Close()
 		return nil, err
 	}
-	return &DB{d}, nil
+
+	return &Store{bolt: db}, nil
 }
 
-func (db *DB) Close() error {
+func (db *Store) Close() error {
 	return db.bolt.Close()
 }
