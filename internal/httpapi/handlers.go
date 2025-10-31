@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"io"
+	"keep3r/internal/meta"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -58,3 +59,10 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusCreated)
 }
+
+func sUpload(store meta.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("upload endponit is wired; meta store ready"))
+	}
+} 

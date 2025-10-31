@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"keep3r/internal/meta"
+	"keep3r/internal/store"
 	"log"
 	"net/http"
 	"os"
@@ -15,10 +17,26 @@ import (
 
 type Server struct {
 	http  *http.Server
+	meta  meta.Store
 	stopC chan os.Signal
 }
 
-func New() *Server {
+func New() (*Server, error) {
+	addr := os.Getenv("HTTP_ADDR")
+	if addr == "" {
+		addr = ":8088"
+	}
+
+	metaDBPath := os.Getenv("META_DB_PATH")
+	if metaDBPath == "" {
+		metaDBPath = "./meta/meta.db"
+	}
+
+	db, err := store.Open(store.Options{Path: metaDBPath})
+	if err != nil {
+		return nil, err
+	}
+
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -32,13 +50,8 @@ func New() *Server {
 	})
 
 	r.Route("/api", func(r chi.Router) {
-		r.Put("/upload", uploadHandler)
+		r.Put("/upload", sUpload(db))
 	})
-
-	addr := os.Getenv("HTTP_ADDR")
-	if addr == "" {
-		addr = ":8088"
-	}
 
 	srv := &http.Server{
 		Addr:    addr,
@@ -47,8 +60,9 @@ func New() *Server {
 
 	return &Server{
 		http:  srv,
+		meta:  db,
 		stopC: make(chan os.Signal, 1),
-	}
+	}, nil
 }
 
 func (s *Server) Run() {
@@ -64,7 +78,7 @@ func (s *Server) Run() {
 	<-s.stopC
 	log.Println("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	s.stop(ctx)
@@ -74,4 +88,5 @@ func (s *Server) Run() {
 
 func (s *Server) stop(ctx context.Context) {
 	s.http.Shutdown(ctx)
+	s.meta.Close()
 }
