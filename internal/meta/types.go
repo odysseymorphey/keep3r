@@ -19,10 +19,12 @@ type ListOptions struct {
 	Cursor string
 }
 
+type NextCursor string
+
 type Store interface {
 	Put(m ObjectMeta) error
 	Get(bucket, key string) (ObjectMeta, error)
 	Delete(bucket, key string) error
-	List(bucket string, opt ListOptions) (items []ObjectMeta, nextCursor string, err error)
+	List(bucket string, opt ListOptions) ([]ObjectMeta, NextCursor, error)
 	Close() error
 }

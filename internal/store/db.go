@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
+	"go.etcd.io/bbolt"
 )
 
 var (
@@ -13,7 +13,7 @@ var (
 )
 
 type Store struct {
-	bolt *bolt.DB
+	bolt *bbolt.DB
 }
 
 type Options struct {
@@ -21,12 +21,12 @@ type Options struct {
 }
 
 func Open(opt Options) (*Store, error) {
-	db, err := bolt.Open(opt.Path, 0600, &bolt.Options{Timeout: 1 * time.Second})
+	db, err := bbolt.Open(opt.Path, 0600, &bbolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.Update(func(tx *bolt.Tx) error {
+	if err := db.Update(func(tx *bbolt.Tx) error {
 		_, e := tx.CreateBucketIfNotExists(rootBucket)
 		return e
 	}); err != nil {
