@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"keep3r/internal/httpapi"
+)
 
 func main() {
-	fmt.Println("Penis")
+	s := httpapi.New()
+
+	s.Run()
 }
