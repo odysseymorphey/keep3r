@@ -28,9 +28,15 @@ type Options struct {
 }
 
 func New(opt Options) (*Server, error) {
-	if opt.HTTPAddr == "" { opt.HTTPAddr = ":8088" }
-	if opt.MetaDBPath == "" { opt.MetaDBPath = "./meta/meta.db" }
-	if opt.DataRoot == "" { opt.MetaDBPath = "./data/blobs" }
+	if opt.HTTPAddr == "" {
+		opt.HTTPAddr = ":8088"
+	}
+	if opt.MetaDBPath == "" {
+		opt.MetaDBPath = "./meta/meta.db"
+	}
+	if opt.DataRoot == "" {
+		opt.MetaDBPath = "./data/blobs"
+	}
 
 	db, err := store.Open(store.Options{Path: opt.MetaDBPath})
 	if err != nil {
@@ -49,7 +55,12 @@ func New(opt Options) (*Server, error) {
 	})
 
 	r.Route("/api", func(r chi.Router) {
+		r.Get("/download", func(w http.ResponseWriter, r *http.Request) {})
+		r.Get("/list", func(w http.ResponseWriter, r *http.Request) {})
+
 		r.Put("/upload", sUpload(db, opt.DataRoot))
+
+		r.Delete("/delete", func(w http.ResponseWriter, r *http.Request) {})
 	})
 
 	srv := &http.Server{
