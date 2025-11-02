@@ -44,13 +44,12 @@ func New(opt Options) (*Server, error) {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Get("/", BaseHandler)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Status OK"))
 	})
 
 	r.Route("/api", func(r chi.Router) {
-		r.Put("/upload", sUpload(db))
+		r.Put("/upload", sUpload(db, opt.DataRoot))
 	})
 
 	srv := &http.Server{
