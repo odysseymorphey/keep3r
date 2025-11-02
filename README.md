@@ -14,7 +14,7 @@ Keep3r is a lightweight object store that exposes a minimal HTTP API for uploadi
 
 #### Clone and Build
 ```bash
-git clone https://github.com/<odysseymorphey>/keep3r.git
+git clone https://github.com/odysseymorphey/keep3r.git
 cd keep3r
 make build
 ```
