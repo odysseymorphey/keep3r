@@ -21,18 +21,18 @@ type Server struct {
 	stopC chan os.Signal
 }
 
-func New() (*Server, error) {
-	addr := os.Getenv("HTTP_ADDR")
-	if addr == "" {
-		addr = ":8088"
-	}
+type Options struct {
+	HTTPAddr   string
+	MetaDBPath string
+	DataRoot   string
+}
 
-	metaDBPath := os.Getenv("META_DB_PATH")
-	if metaDBPath == "" {
-		metaDBPath = "./meta/meta.db"
-	}
+func New(opt Options) (*Server, error) {
+	if opt.HTTPAddr == "" { opt.HTTPAddr = ":8088" }
+	if opt.MetaDBPath == "" { opt.MetaDBPath = "./meta/meta.db" }
+	if opt.DataRoot == "" { opt.MetaDBPath = "./data/blobs" }
 
-	db, err := store.Open(store.Options{Path: metaDBPath})
+	db, err := store.Open(store.Options{Path: opt.MetaDBPath})
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func New() (*Server, error) {
 	})
 
 	srv := &http.Server{
-		Addr:    addr,
+		Addr:    opt.HTTPAddr,
 		Handler: r,
 	}
 

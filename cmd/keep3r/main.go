@@ -6,7 +6,11 @@ import (
 )
 
 func main() {
-	s, err := httpapi.New()
+	s, err := httpapi.New(httpapi.Options{
+		HTTPAddr: ":8088",
+		MetaDBPath: "./meta/meta.db",
+		DataRoot: "./data/blobs",
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
