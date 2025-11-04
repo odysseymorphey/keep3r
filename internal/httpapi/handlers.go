@@ -246,3 +246,29 @@ func safeContentType(ct string) string {
 	}
 	return ct
 }
+
+func sHead(store meta.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bucket := fisrtNonEmpty(r.URL.Query().Get("bucket"), r.Header.Get("X-Bucket"))
+		key := fisrtNonEmpty(r.URL.Query().Get("key"), r.Header.Get("X-Key"))
+
+		if bucket == "" || key == "" {
+			http.Error(w, "bucket and key required (query: ?bucket=&key& or headers X-Bucket/X-Key)", http.StatusBadRequest)
+			return
+		}
+
+		m, err := store.Get(bucket, key)
+		if err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			// todo: add log; not found
+			return
+		}
+
+		w.Header().Set("Content-Type", safeContentType(m.ContentType))
+		w.Header().Set("Content-Length", strconv.FormatInt(m.Size, 10))
+		w.Header().Set("ETag", m.ETag)
+		w.Header().Set("Last-Modified", m.UpdatedAt.UTC().Format(http.TimeFormat))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, path.Base(m.Key)))
+		w.WriteHeader(http.StatusOK)
+	}
+}
