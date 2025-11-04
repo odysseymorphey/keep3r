@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"keep3r/internal/meta"
 
 	"go.etcd.io/bbolt"
@@ -132,10 +133,15 @@ func collect(c *bbolt.Cursor, k []byte, opt meta.ListOptions, items *[]meta.Obje
 	}
 
 	var v []byte
+	k, v = c.Seek(k)
 	for ; k != nil && bytes.HasPrefix(k, []byte(opt.Prefix)) && len(*items) < limit; k, v = c.Next() {
+		if len(v) == 0 {
+			continue
+		}
+
 		var m meta.ObjectMeta
 		if err := json.Unmarshal(v, &m); err != nil {
-			return err
+			return fmt.Errorf("decode meta fo key %q: %w", string(k), err)
 		}
 
 		*items = append(*items, m)

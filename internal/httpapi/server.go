@@ -56,8 +56,8 @@ func New(opt Options) (*Server, error) {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/object", sGet(db))
-		r.Get("/list", func(w http.ResponseWriter, r *http.Request) {})
-		
+		r.Get("/list", sList(db))
+
 		r.Head("/object", sHead(db))
 
 		r.Put("/upload", sUpload(db, opt.DataRoot))

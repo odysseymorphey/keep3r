@@ -305,3 +305,50 @@ func sDelete(store meta.Store) http.HandlerFunc {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
+
+func sList(store meta.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bucket := fisrtNonEmpty(r.URL.Query().Get("bucket"), r.Header.Get("X-Bucket"))
+
+		if bucket == "" {
+			http.Error(w, "bucket and key required (query: ?bucket=&key& or headers X-Bucket/X-Key)", http.StatusBadRequest)
+			return
+		}
+
+		prefix := r.URL.Query().Get("prefix")
+		cursor := r.URL.Query().Get("cursor")
+
+		limit := 100
+
+		if s := r.URL.Query().Get("limit"); s != "" {
+			if n, err := strconv.Atoi(s); err == nil && n > 0 && n <= 1000 {
+				limit = n
+			}
+		}
+
+		items, next, err := store.List(bucket, meta.ListOptions{
+			Prefix: prefix,
+			Limit:  limit,
+			Cursor: cursor,
+		})
+		if err != nil {
+			http.Error(w, "list failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		out := meta.ListResponse{Items: make([]meta.ListObject, 0, len(items)), NextCursor: next}
+		for _, m := range items {
+			out.Items = append(out.Items, meta.ListObject{
+				Bucket:      m.Bucket,
+				Key:         m.Key,
+				Size:        m.Size,
+				ContentType: m.ContentType,
+				ETag:        m.ETag,
+				CreatedAt:   m.CreatedAt.UTC().Format(time.RFC3339),
+				UpdatedAt:   m.UpdatedAt.UTC().Format(time.RFC3339),
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(out)
+	}
+}
