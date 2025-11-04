@@ -5,11 +5,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"keep3r/internal/meta"
+	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -125,7 +129,7 @@ func sUpload(store meta.Store, dataRoot string) http.HandlerFunc {
 			Size:        size,
 			ContentType: ctype,
 			ETag:        etag,
-			BlobPath:    finalDir,
+			BlobPath:    filepath.Join(dataRoot, bucket, key),
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		}
@@ -185,4 +189,60 @@ func validateKey(s string) error {
 	}
 
 	return nil
+}
+
+func sGet(store meta.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bucket := fisrtNonEmpty(r.URL.Query().Get("bucket"), r.Header.Get("X-Bucket"))
+		key := fisrtNonEmpty(r.URL.Query().Get("key"), r.Header.Get("X-Key"))
+
+		if bucket == "" || key == "" {
+			http.Error(w, "bucket and key required (query: ?bucket=&key& or headers X-Bucket/X-Key)", http.StatusBadRequest)
+			return
+		}
+
+		m, err := store.Get(bucket, key)
+		if err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			// todo: add log; not found
+			return
+		}
+
+		f, err := os.Open(m.BlobPath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				http.Error(w, "object blob is missing", http.StatusInternalServerError)
+				// todo: add log
+				return
+			}
+
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			// todo: add log
+			return
+		}
+		defer f.Close()
+
+		if st, err := f.Stat(); err == nil && m.Size > 0 && st.Size() != m.Size {
+			m.Size = st.Size()
+		}
+
+		w.Header().Set("Content-Type", safeContentType(m.ContentType))
+		w.Header().Set("ETag", m.ETag)
+		w.Header().Set("Last-Modified", m.UpdatedAt.UTC().Format(http.TimeFormat))
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.Header().Set("Content-Length", strconv.FormatInt(m.Size, 10))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, path.Base(m.Key)))
+
+		if _, err := io.Copy(w, f); err != nil {
+			log.Printf("stream error: %v; path: %v", err, m.BlobPath)
+			return
+		}
+	}
+}
+
+func safeContentType(ct string) string {
+	if ct == "" {
+		return "application/octet-stream"
+	}
+	return ct
 }
