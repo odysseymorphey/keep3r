@@ -272,3 +272,36 @@ func sHead(store meta.Store) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 	}
 }
+
+func sDelete(store meta.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bucket := fisrtNonEmpty(r.URL.Query().Get("bucket"), r.Header.Get("X-Bucket"))
+		key := fisrtNonEmpty(r.URL.Query().Get("key"), r.Header.Get("X-Key"))
+
+		if bucket == "" || key == "" {
+			http.Error(w, "bucket and key required (query: ?bucket=&key& or headers X-Bucket/X-Key)", http.StatusBadRequest)
+			return
+		}
+
+		m, err := store.Get(bucket, key)
+		if err != nil {
+			w.WriteHeader(http.StatusNoContent)
+			// todo: add log; not found
+			return
+		}
+
+		if err := store.Delete(bucket, key); err != nil {
+			http.Error(w, "delete failed", http.StatusInternalServerError)
+			// todo: add log; failed to delete metadata
+			return
+		}
+
+		if err := os.Remove(m.BlobPath); err != nil {
+			http.Error(w, "delete failed", http.StatusInternalServerError)
+			log.Printf("delete failed: %v: path %v", err, m.BlobPath)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
